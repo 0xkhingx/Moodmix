@@ -38,7 +38,7 @@ moodmix/
 ├── models/
 │   ├── speech_mood_model.pth # Trained CNN weights (32 MB)
 │   ├── text_mood_pipeline.pkl# Text model + vectorizer
-│   └── speech_history.pkl    # Training history (loss/accuracy)
+│   └── text_history.pkl      # Text training history
 ├── reports/                  # Evaluation figures
 │   ├── speech_confusion_matrix.png
 │   ├── speech_per_class_metrics.png
