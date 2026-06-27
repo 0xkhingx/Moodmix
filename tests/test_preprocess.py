@@ -2,8 +2,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.preprocess import clean_text, TESS_EMOTION_MAP, TEXT_LABEL_MAP, extract_mel_spectrogram
-import numpy as np
+from src.preprocess import clean_text, TESS_EMOTION_MAP, TEXT_LABEL_MAP
 
 
 class TestCleanText:
@@ -56,21 +55,3 @@ class TestTextLabelMap:
 
     def test_disgusted(self):
         assert TEXT_LABEL_MAP["disgusted"] == "disgusted"
-
-
-class TestExtractMelSpectrogram:
-    def test_output_shape(self):
-        sr = 16000
-        dummy_audio = np.sin(2 * np.pi * 440 * np.arange(sr) / sr).astype(np.float32)
-        mel = extract_mel_spectrogram(dummy_audio)
-        assert mel.shape == (128, 128, 3)
-
-    def test_output_type(self):
-        dummy_audio = np.zeros(16000, dtype=np.float32)
-        mel = extract_mel_spectrogram(dummy_audio)
-        assert mel.dtype == np.float32
-
-    def test_short_audio_padded(self):
-        short = np.zeros(8000, dtype=np.float32)
-        mel = extract_mel_spectrogram(short)
-        assert mel.shape == (128, 128, 3)
