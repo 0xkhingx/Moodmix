@@ -71,10 +71,11 @@ def train_speech():
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=5)
 
+    history = {"train_acc": [], "val_acc": [], "train_loss": [], "val_loss": []}
     best_acc, patience_counter = 0, 0
     for epoch in range(100):
         model.train()
-        train_correct, train_total = 0, 0
+        train_correct, train_total, train_loss_sum = 0, 0, 0
         for X_b, y_b in train_loader:
             X_b, y_b = X_b.to(device), y_b.to(device)
             optimizer.zero_grad()
@@ -84,24 +85,33 @@ def train_speech():
             _, pred = torch.max(model(X_b).data, 1)
             train_total += y_b.size(0)
             train_correct += (pred == y_b).sum().item()
+            train_loss_sum += loss.item()
 
         model.eval()
         val_correct, val_total = 0, 0
-        val_loss = 0
+        val_loss_sum = 0
         with torch.no_grad():
             for X_b, y_b in val_loader:
                 X_b, y_b = X_b.to(device), y_b.to(device)
                 out = model(X_b)
-                val_loss += criterion(out, y_b).item()
+                loss = criterion(out, y_b)
+                val_loss_sum += loss.item()
                 _, pred = torch.max(out.data, 1)
                 val_total += y_b.size(0)
                 val_correct += (pred == y_b).sum().item()
 
         train_acc = train_correct / train_total
         val_acc = val_correct / val_total
-        scheduler.step(val_loss / len(val_loader))
+        train_loss_avg = train_loss_sum / len(train_loader)
+        val_loss_avg = val_loss_sum / len(val_loader)
+        scheduler.step(val_loss_avg)
 
-        if (epoch + 1) % 5 == 0:
+        history["train_acc"].append(train_acc)
+        history["val_acc"].append(val_acc)
+        history["train_loss"].append(train_loss_avg)
+        history["val_loss"].append(val_loss_avg)
+
+        if (epoch + 1) % 10 == 0:
             print(f"Epoch {epoch+1}: Train={train_acc:.3f} Val={val_acc:.3f}")
 
         if val_acc > best_acc:
@@ -111,8 +121,11 @@ def train_speech():
         else:
             patience_counter += 1
             if patience_counter >= 10:
-                print(f"Early stop at {epoch+1}")
+                print(f"Early stop at epoch {epoch+1}")
                 break
+
+    with open(str(MODELS_DIR / "speech_history.pkl"), "wb") as f:
+        pickle.dump(history, f)
 
     model.load_state_dict(torch.load(str(MODELS_DIR / "speech_mood_model.pth")))
     model.eval()
@@ -138,8 +151,14 @@ def train_text():
 
     model = LogisticRegression(C=1.0, max_iter=1000, n_jobs=-1)
     model.fit(X_train, y_train)
-    print(f"Train acc: {model.score(X_train, y_train):.4f}")
-    print(f"Test acc: {model.score(X_test, y_test):.4f}")
+    train_acc = model.score(X_train, y_train)
+    test_acc = model.score(X_test, y_test)
+    print(f"Train acc: {train_acc:.4f}")
+    print(f"Test acc: {test_acc:.4f}")
+
+    text_history = {"train_acc": [train_acc], "val_acc": [test_acc]}
+    with open(str(MODELS_DIR / "text_history.pkl"), "wb") as f:
+        pickle.dump(text_history, f)
 
     with open(str(PROCESSED_DIR / "text_vectorizer.pkl"), "rb") as f:
         vectorizer = pickle.load(f)
