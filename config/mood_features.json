@@ -1,0 +1,37 @@
+{
+  "happy": {
+    "search_query": "happy upbeat feel good",
+    "icon": "fa-smile",
+    "description": "Upbeat and joyful"
+  },
+  "sad": {
+    "search_query": "sad emotional melancholy",
+    "icon": "fa-frown",
+    "description": "Melancholic and reflective"
+  },
+  "angry": {
+    "search_query": "angry intense heavy",
+    "icon": "fa-angry",
+    "description": "Intense and powerful"
+  },
+  "calm": {
+    "search_query": "calm relaxing peaceful",
+    "icon": "fa-leaf",
+    "description": "Peaceful and relaxed"
+  },
+  "fearful": {
+    "search_query": "dark tense suspenseful",
+    "icon": "fa-flushed",
+    "description": "Tense and uneasy"
+  },
+  "surprised": {
+    "search_query": "surprising upbeat energetic",
+    "icon": "fa-surprise",
+    "description": "Bright and unexpected"
+  },
+  "disgusted": {
+    "search_query": "dark industrial heavy",
+    "icon": "fa-dizzy",
+    "description": "Harsh and abrasive"
+  }
+}

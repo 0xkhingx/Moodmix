@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+.spotify_cache
+.cache
+data/processed/
+models/*.pth
+models/*.h5
+*.npz
+*.npy
+*.pkl
