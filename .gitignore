@@ -3,9 +3,8 @@ __pycache__/
 .env
 .spotify_cache
 .cache
-data/processed/
-models/*.pth
-models/*.h5
+data/
+models/
 *.npz
 *.npy
 *.pkl
