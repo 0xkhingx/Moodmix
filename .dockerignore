@@ -1,0 +1,15 @@
+__pycache__
+*.pyc
+.git
+.gitignore
+.dockerignore
+.env
+.spotify_cache
+.cache
+README.md
+pytest.ini
+tests/
+data/TESS/
+data/processed/
+*.npz
+*.npy
