@@ -1,13 +1,12 @@
 import streamlit as st
 import numpy as np
-import sounddevice as sd
-import os
+import io
 from pathlib import Path
 import spotipy
-from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
+import librosa
 
-from src.spotify_client import get_spotify, get_user_info, search_tracks, create_playlist, get_auth_url, get_mood_info, get_search_query
+from src.spotify_client import get_spotify, get_user_info, search_tracks, create_playlist, get_auth_url, get_mood_info, get_search_query, SessionCacheHandler, _make_auth
 from src.predict import predict
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -260,11 +259,8 @@ with left:
             st.markdown("<span class='badge-spotify'><i class='fas fa-check-circle' style='margin-right:4px;'></i>Connected</span>", unsafe_allow_html=True)
 
         if st.button("Disconnect", use_container_width=True):
-            cache_file = BASE_DIR / ".spotify_cache"
-            if cache_file.exists():
-                cache_file.unlink()
-            st.session_state.spotify_connected = False
-            st.session_state.user_info = None
+            for k in ["spotify_connected", "user_info", "spotify_token_info"]:
+                st.session_state.pop(k, None)
             st.rerun()
     else:
         st.markdown("<p style='color:#888; font-size: 14px;'>Link your Spotify to create playlists.</p>", unsafe_allow_html=True)
@@ -285,13 +281,7 @@ with left:
                     code = params["code"][0]
                     with st.spinner("Connecting..."):
                         try:
-                            auth_manager = SpotifyOAuth(
-                                client_id=os.getenv("SPOTIFY_CLIENT_ID"),
-                                client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
-                                redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:8888/callback"),
-                                scope="playlist-modify-public playlist-modify-private user-read-private",
-                                cache_path=str(BASE_DIR / ".spotify_cache"),
-                            )
+                            auth_manager = _make_auth()
                             token_str = auth_manager.get_access_token(code, as_dict=False)
                             sp_user = spotipy.Spotify(auth=token_str)
                             user_info = get_user_info(sp_user)
@@ -310,29 +300,25 @@ with right:
 
     with tab_speak:
         st.markdown("### Record your voice")
-        col_rec, col_act = st.columns([1, 1])
-        with col_rec:
-            record_seconds = st.slider("Length", 2, 5, 3)
-            if st.button("Start Recording", use_container_width=True):
-                with st.spinner(f"Recording {record_seconds}s..."):
-                    sr = 16000
-                    audio = sd.rec(int(record_seconds * sr), samplerate=sr, channels=1, dtype="float32")
-                    sd.wait()
-                    audio = audio.flatten()
-                    st.session_state.recorded_audio = audio
-                    st.session_state.mood_result = None
-                    st.session_state.playlist_result = None
-                    audio_int16 = (audio * 32767).astype(np.int16)
-                    st.audio(audio_int16.tobytes(), format="audio/wav", sample_rate=sr)
+        recorded_bytes = st.audio_input("Click and hold to record", label_visibility="collapsed")
 
-        with col_act:
-            if st.session_state.recorded_audio is not None:
-                if st.button("Analyze Mood", use_container_width=True, type="primary"):
-                    with st.spinner("Analyzing your voice..."):
-                        result = predict(audio_data=st.session_state.recorded_audio)
-                        if result:
-                            st.session_state.mood_result = result
-                            st.rerun()
+        if recorded_bytes is not None and st.session_state.get("_raw_audio") != recorded_bytes:
+            st.session_state._raw_audio = recorded_bytes
+            audio_arr, _ = librosa.load(io.BytesIO(recorded_bytes), sr=16000)
+            st.session_state.recorded_audio = audio_arr
+            st.session_state.mood_result = None
+            st.session_state.playlist_result = None
+
+        if recorded_bytes is not None:
+            st.audio(recorded_bytes)
+
+        if st.session_state.recorded_audio is not None:
+            if st.button("Analyze Mood", use_container_width=True, type="primary"):
+                with st.spinner("Analyzing your voice..."):
+                    result = predict(audio_data=st.session_state.recorded_audio)
+                    if result:
+                        st.session_state.mood_result = result
+                        st.rerun()
 
     with tab_type:
         st.markdown("### Type how you feel")

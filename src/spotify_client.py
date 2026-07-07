@@ -3,8 +3,10 @@ import json
 import requests
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
+from spotipy.cache_handler import CacheHandler
 from pathlib import Path
 from dotenv import load_dotenv
+import streamlit as st
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -19,6 +21,29 @@ EMOTIONS = list(MOOD_MAP.keys())
 EMOTION_TO_INDEX = {e: i for i, e in enumerate(EMOTIONS)}
 INDEX_TO_EMOTION = {i: e for i, e in enumerate(EMOTIONS)}
 
+
+class SessionCacheHandler(CacheHandler):
+    def __init__(self):
+        self.key = "spotify_token_info"
+
+    def get_cached_token(self):
+        return st.session_state.get(self.key)
+
+    def save_token_to_cache(self, token_info):
+        st.session_state[self.key] = token_info
+
+
+def _make_auth(cache_handler=None):
+    return SpotifyOAuth(
+        client_id=os.getenv("SPOTIFY_CLIENT_ID"),
+        client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
+        redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:8888/callback"),
+        scope=SCOPE,
+        cache_handler=cache_handler or SessionCacheHandler(),
+        open_browser=False,
+    )
+
+
 def get_search_query(mood_label):
     data = MOOD_MAP.get(mood_label)
     return data["search_query"] if data else ""
@@ -30,14 +55,7 @@ def get_all_moods():
     return list(MOOD_MAP.keys())
 
 def get_spotify():
-    auth_manager = SpotifyOAuth(
-        client_id=os.getenv("SPOTIFY_CLIENT_ID"),
-        client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
-        redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:8888/callback"),
-        scope=SCOPE,
-        cache_path=str(BASE_DIR / ".spotify_cache"),
-        open_browser=False,
-    )
+    auth_manager = _make_auth()
     return spotipy.Spotify(auth_manager=auth_manager)
 
 def get_user_info(sp):
@@ -95,12 +113,4 @@ def create_playlist(sp, user_id, name, description, track_uris):
     }
 
 def get_auth_url():
-    auth_manager = SpotifyOAuth(
-        client_id=os.getenv("SPOTIFY_CLIENT_ID"),
-        client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
-        redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:8888/callback"),
-        scope=SCOPE,
-        cache_path=str(BASE_DIR / ".spotify_cache"),
-        open_browser=False,
-    )
-    return auth_manager.get_authorize_url()
+    return _make_auth().get_authorize_url()
