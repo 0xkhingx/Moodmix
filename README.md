@@ -1,3 +1,12 @@
+---
+title: MoodMix
+emoji: 🎵
+colorFrom: black
+colorTo: green
+sdk: docker
+app_port: 7860
+---
+
 # MoodMix
 
 A mood-to-Spotify playlist generator that uses machine learning to detect emotion from speech or text input and creates a curated Spotify playlist based on the detected mood.
