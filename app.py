@@ -327,7 +327,7 @@ with right:
             st.audio(recorded_bytes)
 
         if st.session_state.recorded_audio is not None:
-            if st.button("Analyze Mood", use_container_width=True, type="primary"):
+            if st.button("Analyze Mood", use_container_width=True, type="primary", key="analyze_speech"):
                 with st.spinner("Analyzing your voice..."):
                     result = predict(audio_data=st.session_state.recorded_audio)
                     if result:
@@ -342,7 +342,7 @@ with right:
             height=90,
             label_visibility="collapsed",
         )
-        if st.button("Analyze Mood", type="primary", use_container_width=True):
+        if st.button("Analyze Mood", type="primary", use_container_width=True, key="analyze_text"):
             if text_input.strip():
                 with st.spinner("Analyzing your text..."):
                     result = predict(text=text_input)
