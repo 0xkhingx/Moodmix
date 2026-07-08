@@ -222,9 +222,24 @@ div[data-testid="stVerticalBlock"] > div:has(> div > iframe) {
 </style>
 """, unsafe_allow_html=True)
 
-for key in ["spotify_connected", "user_info", "mood_result", "recorded_audio", "playlist_result", "auth_clicked"]:
+for key in ["spotify_connected", "user_info", "mood_result", "recorded_audio", "playlist_result", "auth_clicked", "auth_code_processed"]:
     if key not in st.session_state:
-        st.session_state[key] = False if key in ["spotify_connected", "auth_clicked"] else None
+        st.session_state[key] = False if key in ["spotify_connected", "auth_clicked", "auth_code_processed"] else None
+
+if not st.session_state.spotify_connected and not st.session_state.auth_code_processed:
+    params = st.query_params
+    if "code" in params:
+        st.session_state.auth_code_processed = True
+        try:
+            auth_manager = _make_auth()
+            token_str = auth_manager.get_access_token(params["code"], as_dict=False)
+            sp_user = spotipy.Spotify(auth=token_str)
+            st.session_state.spotify_connected = True
+            st.session_state.user_info = get_user_info(sp_user)
+            st.query_params.clear()
+            st.rerun()
+        except Exception as e:
+            st.error(f"Auth failed: {e}")
 
 st.markdown("""
 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
@@ -270,28 +285,27 @@ with left:
         if st.session_state.auth_clicked:
             auth_url = get_auth_url()
             st.markdown(f"<p style='margin-top:8px;'><i class='fas fa-arrow-right' style='color:#1DB954;'></i> <a href='{auth_url}' target='_blank' style='color:#1DB954;'>Authorize Spotify</a></p>", unsafe_allow_html=True)
-            st.info("After authorizing, copy the full redirect URL (the broken page address) and paste below.", icon=None)
 
-            callback_url = st.text_input("Redirect URL", placeholder="http://127.0.0.1:8888/callback?code=...")
-            if callback_url and "code=" in callback_url:
-                from urllib.parse import parse_qs, urlparse
-                parsed = urlparse(callback_url)
-                params = parse_qs(parsed.query)
-                if "code" in params:
-                    code = params["code"][0]
-                    with st.spinner("Connecting..."):
-                        try:
-                            auth_manager = _make_auth()
-                            token_str = auth_manager.get_access_token(code, as_dict=False)
-                            sp_user = spotipy.Spotify(auth=token_str)
-                            user_info = get_user_info(sp_user)
-                            st.session_state.spotify_connected = True
-                            st.session_state.user_info = user_info
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Auth failed: {e}")
-                else:
-                    st.warning("No authorization code found in URL.")
+            with st.expander("Trouble connecting? Paste redirect URL manually"):
+                callback_url = st.text_input("Redirect URL", placeholder="http://127.0.0.1:8888/callback?code=...", label_visibility="collapsed")
+                if callback_url and "code=" in callback_url:
+                    from urllib.parse import parse_qs, urlparse
+                    parsed = urlparse(callback_url)
+                    cb_params = parse_qs(parsed.query)
+                    if "code" in cb_params:
+                        code = cb_params["code"][0]
+                        with st.spinner("Connecting..."):
+                            try:
+                                auth_manager = _make_auth()
+                                token_str = auth_manager.get_access_token(code, as_dict=False)
+                                sp_user = spotipy.Spotify(auth=token_str)
+                                st.session_state.spotify_connected = True
+                                st.session_state.user_info = get_user_info(sp_user)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Auth failed: {e}")
+                    else:
+                        st.warning("No authorization code found in URL.")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -304,7 +318,7 @@ with right:
 
         if recorded_bytes is not None and st.session_state.get("_raw_audio") != recorded_bytes:
             st.session_state._raw_audio = recorded_bytes
-            audio_arr, _ = librosa.load(io.BytesIO(recorded_bytes), sr=16000)
+            audio_arr, _ = librosa.load(io.BytesIO(recorded_bytes.getvalue()), sr=16000)
             st.session_state.recorded_audio = audio_arr
             st.session_state.mood_result = None
             st.session_state.playlist_result = None
