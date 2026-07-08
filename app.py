@@ -318,18 +318,19 @@ with right:
 
         if recorded_bytes is not None and st.session_state.get("_raw_audio") != recorded_bytes:
             st.session_state._raw_audio = recorded_bytes
-            audio_arr, _ = librosa.load(io.BytesIO(recorded_bytes.getvalue()), sr=16000)
-            st.session_state.recorded_audio = audio_arr
+            st.session_state.recorded_bytes_raw = recorded_bytes.getvalue()
             st.session_state.mood_result = None
             st.session_state.playlist_result = None
 
         if recorded_bytes is not None:
             st.audio(recorded_bytes)
 
-        if st.session_state.recorded_audio is not None:
+        if st.session_state.recorded_bytes_raw is not None:
+            st.markdown("<span style='color: #1DB954; font-size: 13px;'>✓ Audio captured</span>", unsafe_allow_html=True)
             if st.button("Analyze Mood", use_container_width=True, type="primary", key="analyze_speech"):
                 with st.spinner("Analyzing your voice..."):
-                    result = predict(audio_data=st.session_state.recorded_audio)
+                    audio_arr, _ = librosa.load(io.BytesIO(st.session_state.recorded_bytes_raw), sr=16000)
+                    result = predict(audio_data=audio_arr)
                     if result:
                         st.session_state.mood_result = result
                         st.rerun()
