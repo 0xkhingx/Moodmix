@@ -222,7 +222,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div > iframe) {
 </style>
 """, unsafe_allow_html=True)
 
-for key in ["spotify_connected", "user_info", "mood_result", "recorded_audio", "playlist_result", "auth_clicked", "auth_code_processed"]:
+for key in ["spotify_connected", "user_info", "mood_result", "recorded_audio", "playlist_result", "auth_clicked", "auth_code_processed", "recorded_bytes_raw"]:
     if key not in st.session_state:
         st.session_state[key] = False if key in ["spotify_connected", "auth_clicked", "auth_code_processed"] else None
 
