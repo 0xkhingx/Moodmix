@@ -14,6 +14,17 @@ load_dotenv(BASE_DIR / ".env")
 
 st.set_page_config(page_title="MoodMix", page_icon=":musical_note:", layout="wide")
 
+st.markdown("""
+<script>
+if (window.self !== window.top) {
+    window.top.location.href = "https://0xkhingx-moodmix.hf.space";
+}
+</script>
+<noscript>
+  <meta http-equiv="refresh" content="0; url=https://0xkhingx-moodmix.hf.space">
+</noscript>
+""", unsafe_allow_html=True)
+
 MOOD_COLORS = {
     "happy":    {"bg": "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)", "card": "#2d1b36"},
     "sad":      {"bg": "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)", "card": "#1a2a3a"},
