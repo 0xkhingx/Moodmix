@@ -1,0 +1,290 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #0f0f0f;
+  color: #f5f5f5;
+}
+
+/* Full-viewport emotion hero. The backdrop crossfades between the committed
+   (.hero-bg) and incoming (.hero-bg-fade) mood gradients over 650ms. */
+.hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+}
+
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: #0f0f0f;
+}
+
+.hero-bg-fade {
+  opacity: 0;
+  transition: opacity 650ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ghost {
+  position: absolute;
+  inset-inline: 0;
+  top: 30%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  user-select: none;
+  /* Sized so the longest emotion word (SURPRISED, 9 chars) fits edge to
+     edge at any viewport — no clipping, no wrapping. */
+  font-size: clamp(64px, 17vw, 260px);
+  font-weight: 400;
+  line-height: 1;
+  color: #fff;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ghost > span {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+.hero-inner {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 24px clamp(16px, 4vw, 40px) 28px;
+}
+
+.hero-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Navbar mark: portrait aspect, sized by height. Ink follows the mood. */
+.hero-nav .hero-logo {
+  width: auto;
+  height: clamp(72px, 11vh, 120px);
+}
+
+.hero-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(20px, 4vh, 36px);
+  padding: 64px 0 32px;
+}
+
+.hero-logo-wrap {
+  display: flex;
+  transition: color 650ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Brand mark: ink follows the mood (inherited currentColor), and carries a
+   dark halo so it stays legible over gradients + ghost text. */
+.hero-logo {
+  width: clamp(72px, 12vw, 112px);
+  height: auto;
+  filter: drop-shadow(0 2px 14px rgba(0, 0, 0, 0.45));
+}
+
+.hero-panel {
+  width: min(520px, 100%);
+}
+
+.hero .card {
+  background: rgba(15, 15, 15, 0.66);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.hero-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.hero-foot-left {
+  max-width: 320px;
+}
+
+.hero-kick {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #fff;
+  opacity: 0.95;
+}
+
+@media (min-width: 640px) {
+  .hero-kick {
+    margin-bottom: 12px;
+    font-size: 22px;
+  }
+}
+
+.hero-lede {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .hero-lede {
+    display: block;
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #fff;
+    opacity: 0.85;
+  }
+}
+
+.discover {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(20px, 4vw, 56px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: #fff;
+  opacity: 0.95;
+  transition: opacity 200ms;
+}
+
+.discover:hover {
+  opacity: 1;
+}
+
+.discover svg {
+  width: 20px;
+  height: 20px;
+}
+
+@media (min-width: 640px) {
+  .discover svg {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+.grain {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0.4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  background-repeat: repeat;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  background: #1a1a1a;
+  border-radius: 12px;
+  padding: 4px;
+  margin: 24px auto 16px;
+  width: fit-content;
+}
+
+.tabs button {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-weight: 600;
+  background: transparent;
+  color: #aaa;
+  cursor: pointer;
+}
+
+.tabs button[aria-selected="true"] {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+.card {
+  background: #161616;
+  border: 1px solid #262626;
+  border-radius: 16px;
+  padding: 20px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 96px;
+  border-radius: 12px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #fff;
+  padding: 12px;
+  font: inherit;
+  resize: vertical;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+button.primary {
+  background: #1db954;
+  color: #000;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 24px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button.primary:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+button.secondary {
+  background: #2a2a2a;
+  color: #fff;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.error {
+  color: #ff8a8a;
+  margin-top: 12px;
+}
+
+.hint {
+  color: #888;
+  font-size: 13px;
+  margin-top: 8px;
+}

@@ -2,11 +2,14 @@ import os
 import json
 import requests
 import spotipy
-from spotipy.oauth2 import SpotifyOAuth
+from spotipy.oauth2 import SpotifyOAuth, SpotifyClientCredentials
 from spotipy.cache_handler import CacheHandler
 from pathlib import Path
 from dotenv import load_dotenv
-import streamlit as st
+try:
+    import streamlit as st
+except ImportError:  # FastAPI context: streamlit not required
+    st = None
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -23,14 +26,21 @@ INDEX_TO_EMOTION = {i: e for i, e in enumerate(EMOTIONS)}
 
 
 class SessionCacheHandler(CacheHandler):
+    """Legacy Streamlit-session token cache (used only by app.py OAuth flow)."""
+
     def __init__(self):
         self.key = "spotify_token_info"
 
+    def _require_streamlit(self):
+        if st is None:
+            raise RuntimeError("SessionCacheHandler requires Streamlit runtime (app.py only).")
+        return st.session_state
+
     def get_cached_token(self):
-        return st.session_state.get(self.key)
+        return self._require_streamlit().get(self.key)
 
     def save_token_to_cache(self, token_info):
-        st.session_state[self.key] = token_info
+        self._require_streamlit()[self.key] = token_info
 
 
 def _make_auth(cache_handler=None):
@@ -55,8 +65,30 @@ def get_all_moods():
     return list(MOOD_MAP.keys())
 
 def get_spotify():
+    """Legacy user-OAuth client (Streamlit app.py only)."""
     auth_manager = _make_auth()
     return spotipy.Spotify(auth_manager=auth_manager)
+
+
+_cc_sp = None
+
+
+def get_client_credentials_sp():
+    """Display-only Spotify client (FastAPI): no user login, search only."""
+    global _cc_sp
+    if _cc_sp is None:
+        auth_manager = SpotifyClientCredentials(
+            client_id=os.getenv("SPOTIFY_CLIENT_ID"),
+            client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
+        )
+        _cc_sp = spotipy.Spotify(auth_manager=auth_manager)
+    return _cc_sp
+
+
+def search_tracks_cc(query, limit=10):
+    """Search tracks via client-credentials client. Raises on failure."""
+    sp = get_client_credentials_sp()
+    return search_tracks(sp, query, limit=limit)
 
 def get_user_info(sp):
     user = sp.current_user()
