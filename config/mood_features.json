@@ -2,36 +2,109 @@
   "happy": {
     "search_query": "happy upbeat feel good",
     "icon": "fa-smile",
-    "description": "Upbeat and joyful"
+    "description": "Upbeat and joyful",
+    "lift_query": "feel good party anthems",
+    "genres": [
+      "dance pop",
+      "pop",
+      "reggae"
+    ],
+    "lift_genres": [
+      "dance pop",
+      "pop"
+    ]
   },
   "sad": {
     "search_query": "sad emotional melancholy",
     "icon": "fa-frown",
-    "description": "Melancholic and reflective"
+    "description": "Melancholic and reflective",
+    "lift_query": "uplifting hopeful feel good",
+    "genres": [
+      "indie folk",
+      "folk",
+      "r&b"
+    ],
+    "lift_genres": [
+      "soul",
+      "pop",
+      "reggae"
+    ]
   },
   "angry": {
     "search_query": "angry intense heavy",
     "icon": "fa-angry",
-    "description": "Intense and powerful"
+    "description": "Intense and powerful",
+    "lift_query": "calming chill release",
+    "genres": [
+      "metal",
+      "punk"
+    ],
+    "lift_genres": [
+      "jazz",
+      "folk",
+      "soul"
+    ]
   },
   "calm": {
     "search_query": "calm relaxing peaceful",
     "icon": "fa-leaf",
-    "description": "Peaceful and relaxed"
+    "description": "Peaceful and relaxed",
+    "lift_query": "upbeat energizing good vibes",
+    "genres": [
+      "jazz",
+      "indie folk",
+      "r&b"
+    ],
+    "lift_genres": [
+      "dance pop",
+      "pop",
+      "reggae"
+    ]
   },
   "fearful": {
     "search_query": "dark tense suspenseful",
     "icon": "fa-flushed",
-    "description": "Tense and uneasy"
+    "description": "Tense and uneasy",
+    "lift_query": "comforting soothing reassuring",
+    "genres": [
+      "rock",
+      "indie rock"
+    ],
+    "lift_genres": [
+      "indie folk",
+      "jazz",
+      "soul"
+    ]
   },
   "surprised": {
     "search_query": "surprising upbeat energetic",
     "icon": "fa-surprise",
-    "description": "Bright and unexpected"
+    "description": "Bright and unexpected",
+    "lift_query": "fun upbeat energetic",
+    "genres": [
+      "dance pop",
+      "pop",
+      "punk"
+    ],
+    "lift_genres": [
+      "pop",
+      "dance pop"
+    ]
   },
   "disgusted": {
     "search_query": "dark industrial heavy",
     "icon": "fa-dizzy",
-    "description": "Harsh and abrasive"
+    "description": "Harsh and abrasive",
+    "lift_query": "fresh feel good indie",
+    "genres": [
+      "metal",
+      "punk",
+      "indie rock"
+    ],
+    "lift_genres": [
+      "indie folk",
+      "soul",
+      "pop"
+    ]
   }
 }

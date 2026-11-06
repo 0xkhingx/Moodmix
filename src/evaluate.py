@@ -2,7 +2,6 @@ import sys
 import numpy as np
 import torch
 import pickle
-import scipy.sparse
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -98,8 +97,11 @@ def evaluate_speech():
 
     from src.train import MoodCNN
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = MoodCNN(num_classes=7).to(device)
-    model.load_state_dict(torch.load(str(MODELS_DIR / "speech_mood_model.pth"), map_location=device))
+    from src.predict import _load_speech_labels
+    labels = _load_speech_labels()
+    model = MoodCNN(num_classes=len(labels)).to(device)
+    model.load_state_dict(torch.load(str(MODELS_DIR / "speech_mood_model.pth"),
+                                     map_location=device, weights_only=True))
     model.eval()
 
     all_preds, all_probs = [], []
@@ -119,6 +121,7 @@ def evaluate_speech():
     f1 = f1_score(y_true, y_pred, average="weighted")
     print(f"Test Accuracy: {acc:.4f}")
     print(f"Weighted F1:   {f1:.4f}")
+    print(f"Macro F1:      {f1_score(y_true, y_pred, average='macro'):.4f}")
     print("\nClassification Report:")
     print(classification_report(y_true, y_pred, target_names=EMOTIONS, zero_division=0))
 
@@ -128,44 +131,63 @@ def evaluate_speech():
                            "Speech Emotion CNN", "speech_per_class_metrics.png")
 
     all_probs = np.array(all_probs)
-    confidence_by_class = np.array([all_probs[y_true == i, i].mean() for i in range(7)])
+    confidence_by_class = np.array([all_probs[y_true == i, i].mean() for i in range(len(labels))])
     print("\nAverage confidence on correct predictions per class:")
     for i, emo in enumerate(EMOTIONS):
         print(f"  {emo:12s}: {confidence_by_class[i]:.3f}")
 
 def evaluate_text():
-    print("\n" + "=" * 50)
-    print("TEXT MODEL EVALUATION")
+    """Evaluate the deployed text ensemble on both held-out test sets.
+
+    Uses the same splits/subsample and feature cache as src/train_text_combiner.py.
+    """
+    print()
+    print("=" * 50)
+    print("TEXT MODEL EVALUATION (stacked ensemble)")
     print("=" * 50)
 
-    with open(str(PROCESSED_DIR / "text_test.npz"), "rb") as f:
-        X_test = scipy.sparse.load_npz(f)
-    y_test = np.load(str(PROCESSED_DIR / "text_y_test.npy"))
+    import src.train_text_combiner as tc
+    from src.predict import _load_text
 
-    with open(str(MODELS_DIR / "text_mood_pipeline.pkl"), "rb") as f:
-        pipeline = pickle.load(f)
-    model = pipeline["model"]
+    model = _load_text()
+    if model.mode != "ensemble":
+        print("Text ensemble unavailable (run scripts/fetch_models.py); skipping.")
+        return
+    tc.fetch_goemotions()
+    sets = {
+        "dair_test": tc.subsample(*tc.load_dair("test"), 1000),
+        "go_test": tc.subsample(*tc.load_go("test", model.goemo.labels), 1000),
+    }
+    titles = {"dair_test": "dair-ai test", "go_test": "GoEmotions test"}
+    for name, (X, y) in sets.items():
+        L, G = tc.features(name, X, model, model.goemo)
+        probs = model.stacker.predict_proba(
+            np.stack([tc.stack_features(l, g) for l, g in zip(L, G)])
+        )[:, model._order]
+        labels = [m for m in tc.MOODS if m in set(y)]
+        idx = {m: i for i, m in enumerate(labels)}
+        pred_moods = [tc.MOODS[i] for i in probs.argmax(1)]
+        # Predictions outside the classes present in this test set count as errors
+        # in the report; the plots only show the present classes.
+        y_true = np.array([idx[m] for m in y])
+        y_pred = np.array([idx.get(m, -1) for m in pred_moods])
+        print()
+        print(f"[{titles[name]}] n={len(y)}")
+        print(f"Accuracy:  {accuracy_score(y, pred_moods):.4f}")
+        print(f"Macro F1:  {f1_score(y, pred_moods, average='macro', labels=labels):.4f}")
+        print(classification_report(y, pred_moods, labels=labels, zero_division=0, digits=3))
+        keep = y_pred >= 0
+        tag = "text" if name == "dair_test" else "text_goemotions"
+        plot_confusion_matrix(y_true[keep], y_pred[keep], labels,
+                              f"Text Ensemble ({titles[name]})", f"{tag}_confusion_matrix.png")
+        plot_per_class_metrics(y_true[keep], y_pred[keep], labels,
+                               f"Text Ensemble ({titles[name]})", f"{tag}_per_class_metrics.png")
 
-    y_pred = model.predict(X_test)
-    y_true = y_test
-
-    acc = accuracy_score(y_true, y_pred)
-    f1 = f1_score(y_true, y_pred, average="weighted")
-    print(f"Test samples: {X_test.shape[0]}")
-    print(f"Test Accuracy: {acc:.4f}")
-    print(f"Weighted F1:   {f1:.4f}")
-    present_labels = sorted(np.unique(np.concatenate([y_true, y_pred])))
-    present_emotions = [EMOTIONS[i] for i in present_labels]
-    print(f"\nPresent classes: {present_emotions}")
-    print(classification_report(y_true, y_pred, labels=present_labels,
-                                target_names=present_emotions, zero_division=0))
-
-    plot_confusion_matrix(y_true, y_pred, present_emotions,
-                          "Text Emotion Classifier", "text_confusion_matrix.png")
-    plot_per_class_metrics(y_true, y_pred, present_emotions,
-                           "Text Emotion Classifier", "text_per_class_metrics.png")
 
 if __name__ == "__main__":
-    evaluate_speech()
+    if (PROCESSED_DIR / "X_test.npy").exists():
+        evaluate_speech()
+    else:
+        print("Speech test set not found (run src/preprocess.py); skipping speech evaluation.")
     evaluate_text()
     print("\nAll evaluation reports saved to:", REPORTS_DIR)

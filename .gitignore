@@ -7,3 +7,25 @@ data/TESS/
 data/processed/
 *.npz
 *.npy
+
+# Local run logs
+*.log
+
+# Downloaded at build time by scripts/fetch_models.py
+models/goemotions/
+data/goemotions/
+data/feedback.sqlite3
+data/CREMA-D/
+
+# Trailer: licensed raw audio must not be published; renders are large
+trailer/assets/music/**/*.mp3
+trailer/frames/
+trailer/out/*.mp4
+models/*.candidate.pth
+trailer/src/gen/
+trailer/frames/
+
+# Trailer: regenerable captures and review renders (large)
+trailer/assets/screens/
+trailer/reviews/
+trailer/audio/*.wav
