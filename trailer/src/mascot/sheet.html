@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Moodie: character sheet</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Instrument+Sans:wght@400..600&display=block" rel="stylesheet">
+<script src="mascot.js"></script>
+<script src="../gen/data.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { width: 1920px; height: 1560px; background: #14151d; color: #ecebf1; font-family: "Instrument Sans", sans-serif; padding: 56px 72px; }
+  h1 { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; letter-spacing: -0.04em; font-size: 52px; }
+  .sub { color: #a3a5bd; font-size: 20px; margin-top: 6px; }
+  .wrap { display: grid; grid-template-columns: 1fr 380px; gap: 48px; margin-top: 36px; }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; }
+  .cell { background: #1c1d28; border: 1px solid rgba(236,235,241,.13); border-radius: 22px; padding: 14px 10px 12px; text-align: center; }
+  .cell svg { width: 100%; height: 190px; display: block; overflow: visible; }
+  .cell b { display: block; font-family: "Bricolage Grotesque", sans-serif; font-size: 20px; margin-top: 6px; }
+  .cell span { color: #a3a5bd; font-size: 14px; }
+  .hero { background: #1c1d28; border: 1px solid rgba(236,235,241,.13); border-radius: 22px; padding: 22px; }
+  .hero svg { width: 100%; height: 300px; display: block; overflow: visible; }
+  .notes h2 { font-family: "Bricolage Grotesque", sans-serif; font-size: 22px; margin: 18px 0 6px; }
+  .notes p, .notes li { color: #c9c9d8; font-size: 16px; line-height: 1.45; }
+  .notes ul { padding-left: 18px; }
+  .sw { display: inline-block; width: 18px; height: 18px; border-radius: 50%; vertical-align: -3px; margin-right: 6px; }
+</style>
+</head>
+<body>
+  <h1>Moodie</h1>
+  <div class="sub">The MoodMix mascot. Character sheet v2: arms and guide poses. Flat style matched to the app's MoodFaces.</div>
+  <div class="wrap">
+    <div class="grid" id="grid"></div>
+    <div>
+      <div class="hero" id="hero"></div>
+      <div class="notes">
+        <h2>Role</h2>
+        <p>A mood buddy: it <b>listens</b> (headphones, eyes closed), <b>feels</b> your mood (turns that mood's colour) and <b>vibes</b> when the music lands.</p>
+        <h2>Rules</h2>
+        <ul>
+          <li>Resting colour: Cuzzon lilac <span class="sw" style="background:#e2d4e0"></span>; mood colour only when it feels something.</li>
+          <li>Ink #1A1712, no outlines on the body; shine like the MoodFaces.</li>
+          <li>Motion: squash and stretch on landings, head-bob on beats, blinks. No idle wobble.</li>
+          <li>Signature sound: one soft "boop" when it reacts (a real recording, chosen later).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+<script>
+  const S = window.MM.style;
+  const cells = [
+    ["neutral", "#E2D4E0", "At rest"],
+    ["listening", "#E2D4E0", "Listening"],
+    ["happy", S.happy.color, "Happy"],
+    ["sad", S.sad.color, "Sad"],
+    ["angry", S.angry.color, "Angry"],
+    ["calm", S.calm.color, "Calm"],
+    ["fearful", S.fearful.color, "Fearful"],
+    ["surprised", S.surprised.color, "Surprised"],
+    ["disgusted", S.disgusted.color, "Disgusted"],
+    ["vibing", "#E2D4E0", "Vibing (music found)"],
+  ];
+  document.getElementById("grid").innerHTML = cells.map(([e, c, l]) =>
+    `<div class="cell">${mascotSVG({ expr: e, color: c, tilt: e === "vibing" ? -8 : 0 })}<b>${l}</b><span>${e}</span></div>`).join("");
+  // guide poses (v2)
+  const P = window.MOODIE_POSES;
+  const poses = [["point", "neutral", "#E2D4E0", "Point (at UI)"], ["tap", "neutral", "#E2D4E0", "Tap"],
+                 ["wave", "happy", "#E2D4E0", "Wave"], ["cheer", "happy", S.happy.color, "Cheer"], ["shrug", "sad", S.sad.color, "Shrug (not quite)"]];
+  document.getElementById("grid").innerHTML += poses.map(([p, e, c, l]) =>
+    `<div class="cell">${mascotSVG({ expr: e, color: c, ...P[p], extras: false })}<b>${l}</b><span>pose: ${p}</span></div>`).join("");
+  // squash / stretch strip
+  document.getElementById("hero").innerHTML =
+    `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;align-items:end">
+      ${[["stretch", -0.12, 0], ["rest", 0, 0], ["squash", 0.14, 0]].map(([n, q]) =>
+        `<div style="text-align:center">${mascotSVG({ expr: "happy", color: S.happy.color, squash: q, extras: false })}<span style="color:#a3a5bd;font-size:14px">${n}</span></div>`).join("")}
+    </div>`;
+  document.fonts.ready.then(() => (document.title += " ✓"));
+</script>
+</body>
+</html>
