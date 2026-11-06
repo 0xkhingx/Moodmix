@@ -29,3 +29,6 @@ trailer/frames/
 trailer/assets/screens/
 trailer/reviews/
 trailer/audio/*.wav
+
+# Trailer pipeline (kept local, not in the repo)
+trailer/
