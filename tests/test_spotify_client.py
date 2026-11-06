@@ -56,3 +56,25 @@ class TestGetSearchQuery:
         for mood in EMOTIONS:
             q = get_search_query(mood)
             assert len(q) > 0, f"{mood} has empty search query"
+
+
+class TestLiftQuery:
+    def test_every_mood_has_distinct_lift_query(self):
+        for mood in EMOTIONS:
+            lift = get_search_query(mood, "lift")
+            assert lift and lift != get_search_query(mood, "match")
+
+
+class TestTrackQueries:
+    def test_every_mood_uses_genre_queries(self):
+        from src.spotify_client import get_track_queries
+
+        for mood in EMOTIONS:
+            for mode in ("match", "lift"):
+                qs = get_track_queries(mood, mode)
+                assert qs and all(q.startswith('genre:"') for q in qs)
+
+    def test_unknown_mood_has_no_queries(self):
+        from src.spotify_client import get_track_queries
+
+        assert get_track_queries("bogus") == []

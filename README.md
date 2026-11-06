@@ -13,8 +13,8 @@ A mood-to-Spotify playlist generator that uses machine learning to detect emotio
 
 ## Features
 
-- **Speech Emotion Recognition** — Record your voice via microphone; a CNN analyzes mel-spectrogram features to classify emotion (96.4% accuracy)
-- **Text Emotion Classification** — Type how you're feeling; a TF-IDF + Logistic Regression model classifies the sentiment (86.7% accuracy)
+- **Speech Emotion Recognition** — Record your voice via microphone; a CNN on log-mel windows classifies emotion, evaluated on actors it never heard
+- **Text Emotion Classification** — Type how you're feeling; a TF-IDF/Logistic Regression model and a GoEmotions RoBERTa model (ONNX) are fused by a learned stacker, covering all 7 moods including neutral (calm) and disgust
 - **Spotify Integration** — Automatically creates a playlist with 10 tracks matching the detected mood using Spotify's search API
 - **Streamlit UI** — Dark-themed interface with Font Awesome icons, mood-colored cards, and track previews
 
@@ -115,49 +115,51 @@ Input: 128x128 mel-spectrogram (3-channel)
 ```
 Optimizer: Adam (lr=0.001), Scheduler: ReduceLROnPlateau, Early stopping (patience=10)
 
-### Text Classifier
-TF-IDF vectorization (unigrams + bigrams, max 5000 features) → Logistic Regression (C=1.0)
+### Text Classifier (ensemble)
+```
+text ─┬─ TF-IDF (1-2 grams, 5000) → Logistic Regression ─── 5 probs ─┐
+      └─ RoBERTa-base GoEmotions (int8 ONNX, 28 labels) ─ 28 sigmoids ┴─→ stacker (LogReg) → 7 moods
+```
+- **TF-IDF + LR** (`models/text_mood_pipeline.pkl`): strong on the "i feel…" style it was trained on, but has no neutral/disgust class.
+- **GoEmotions RoBERTa** ([SamLowe/roberta-base-go_emotions-onnx](https://huggingface.co/SamLowe/roberta-base-go_emotions-onnx), MIT): handles neutral, disgust and general text. Downloaded at build time by `scripts/fetch_models.py` (pinned revision + SHA-256).
+- **Stacker** (`models/text_combiner.pkl`): fit only on validation splits of both datasets (`src/train_text_combiner.py`), so neither base model's training data leaks into it.
+- If the RoBERTa files are missing, the API falls back to TF-IDF + LR alone.
+
+### Serving
+Both models run on **ONNX Runtime** — the production API does not install torch. `src/export_onnx.py` converts the speech CNN after training.
 
 ## Results
 
 ### Speech Emotion Recognition
 
-| Metric | Value |
-|--------|-------|
-| Test Accuracy | 96.4% |
-| Weighted F1 | 0.964 |
+Trained on **CREMA-D (91 actors) + TESS**, with CREMA-D split **by actor**, so test voices are never heard in training (`src/train_speech_v2.py`). Inputs are silence-trimmed 2.5 s windows, scored and averaged exactly as at inference.
 
-| Class | Precision | Recall | F1 |
-|-------|-----------|--------|----|
-| Happy | 0.96 | 0.90 | 0.93 |
-| Sad | 1.00 | 1.00 | 1.00 |
-| Angry | 1.00 | 0.93 | 0.97 |
-| Calm | 1.00 | 1.00 | 1.00 |
-| Fearful | 0.95 | 1.00 | 0.98 |
-| Surprised | 0.90 | 0.93 | 0.92 |
-| Disgusted | 0.94 | 0.98 | 0.96 |
+| Test set (held out) | Previous model (TESS only) | Current model |
+|---|---|---|
+| CREMA-D, 14 unseen actors (1,142 clips), macro-F1 | 0.140 | **0.404** |
+| CREMA-D, 14 unseen actors, accuracy | 23.2% | **45.4%** |
+| TESS test split (420 clips), macro-F1 | 0.894 | **0.988** |
 
-![Speech Confusion Matrix](reports/speech_confusion_matrix.png)
-![Speech Per-Class Metrics](reports/speech_per_class_metrics.png)
-![Speech Training Summary](reports/speech_training_summary.png)
+The previous model's 96% came from a random split of TESS (two speakers, the same 200 words in train and test). On new voices it was close to chance. Speech emotion from new speakers is genuinely hard; the text model and the "Not quite right?" correction loop exist for that reason.
+
+Datasets: CREMA-D (ODbL); TESS (CC BY-NC 4.0, **non-commercial**). For commercial use, retrain on CREMA-D only.
 
 ### Text Emotion Classification
 
-| Metric | Value |
-|--------|-------|
-| Test Accuracy | 86.7% |
-| Weighted F1 | 0.860 |
+Macro-F1 on held-out **test** splits (1000 rows each). Two domains: the repo's dair-ai dataset (`data/text_emotion`, "i feel…" style, 5 moods) and GoEmotions (real Reddit comments, all 7 moods incl. neutral → calm).
 
-| Class | Precision | Recall | F1 |
-|-------|-----------|--------|----|
-| Happy | 0.91 | 0.71 | 0.80 |
-| Sad | 0.87 | 0.69 | 0.77 |
-| Angry | 0.84 | 0.98 | 0.90 |
-| Calm | 0.89 | 0.91 | 0.90 |
-| Fearful | 0.91 | 0.41 | 0.56 |
+| Model | dair-ai test | GoEmotions test | Mean |
+|-------|-------------|-----------------|------|
+| TF-IDF + LR (previous) | **0.865** | 0.159 | 0.512 |
+| GoEmotions RoBERTa alone | 0.444 | **0.659** | 0.551 |
+| **Stacked ensemble (current)** | 0.814 | 0.529 | **0.671** |
+
+The previous model cannot output calm or disgusted at all, so any neutral sentence ("what is for lunch") was forced into an emotion. Known weak spots of the ensemble: disgust precision (rare class) and some negations ("not happy").
 
 ![Text Confusion Matrix](reports/text_confusion_matrix.png)
 ![Text Per-Class Metrics](reports/text_per_class_metrics.png)
+![Text Confusion Matrix (GoEmotions)](reports/text_goemotions_confusion_matrix.png)
+![Text Per-Class Metrics (GoEmotions)](reports/text_goemotions_per_class_metrics.png)
 ![Text Training Summary](reports/text_training_summary.png)
 
 ## Regenerating Results
@@ -169,9 +171,12 @@ python src/evaluate.py
 # Generate training summary plots
 python src/plot_training.py
 
-# Full pipeline: preprocess → train → evaluate
+# Full pipeline: preprocess → train → export → evaluate
 python src/preprocess.py
 python src/train.py
+python src/export_onnx.py          # speech CNN -> models/speech_mood_model.onnx
+python scripts/fetch_models.py     # GoEmotions RoBERTa (ONNX)
+python src/train_text_combiner.py  # text stacker (needs pandas + pyarrow)
 python src/evaluate.py
 ```
 

@@ -105,3 +105,27 @@ class TestPredictWrapper:
 
     def test_empty_text_returns_none(self):
         assert predict(text="") is None
+
+
+class TestSpeechWindowing:
+    def test_long_clip_is_windowed_and_averaged(self):
+        from src.predict import _speech_windows, MAX_WINDOWS
+
+        audio = (0.1 * np.random.randn(16000 * 30)).astype(np.float32)
+        windows = _speech_windows(audio)
+        assert 1 < len(windows) <= MAX_WINDOWS
+        _, _, probs = predict_speech(audio, sr=16000)
+        assert abs(sum(probs) - 1.0) < 0.01
+
+    def test_leading_silence_is_trimmed(self):
+        from src.predict import _speech_windows
+
+        tone = (0.5 * np.sin(2 * np.pi * 220 * np.arange(16000) / 16000)).astype(np.float32)
+        audio = np.concatenate([np.zeros(16000 * 5, dtype=np.float32), tone])
+        windows = _speech_windows(audio)
+        assert len(windows) == 1 and windows[0].size < 16000 * 2
+
+    def test_predict_returns_labels_matching_probabilities(self):
+        result = predict(text="I am happy")
+        assert len(result["labels"]) == len(result["probabilities"])
+        assert result["emotion"] in result["labels"]

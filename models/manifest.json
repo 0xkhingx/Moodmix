@@ -1,0 +1,59 @@
+{
+  "text_combiner": {
+    "file": "text_combiner.pkl",
+    "method": "LogisticRegression stacker (C=1.0, balanced) on [log LR probs, log GoEmotions sigmoids]",
+    "base_models": {
+      "tfidf_lr": "text_mood_pipeline.pkl",
+      "goemotions": "SamLowe/roberta-base-go_emotions-onnx (int8, MIT), see scripts/fetch_models.py"
+    },
+    "fit_on": "dair-ai val.txt + GoEmotions validation (1000 rows each, seed 0)",
+    "test_metrics": {
+      "dair_test": {
+        "macro_f1": 0.8140712113642101,
+        "accuracy": 0.853,
+        "n": 1000
+      },
+      "go_test": {
+        "macro_f1": 0.5285886033160735,
+        "accuracy": 0.603,
+        "n": 1000
+      }
+    },
+    "trained_at": "2026-11-05T21:24:15+00:00",
+    "scikit_learn": "1.8.0"
+  },
+  "speech": {
+    "file": "speech_mood_model.onnx",
+    "labels": [
+      "happy",
+      "sad",
+      "angry",
+      "calm",
+      "fearful",
+      "surprised",
+      "disgusted"
+    ],
+    "dataset": "CREMA-D (split by actor) + TESS",
+    "test_crema_heldout_speakers": {
+      "macro_f1": 0.4044962495017583,
+      "accuracy": 0.45446584938704027,
+      "n": 1142
+    },
+    "test_tess": {
+      "macro_f1": 0.988070093184904,
+      "accuracy": 0.9880952380952381,
+      "n": 420
+    },
+    "previous_model_same_test": {
+      "macro_f1": 0.13958450628931696,
+      "accuracy": 0.23204903677758318,
+      "n": 1142
+    },
+    "best_val_macro_f1": 0.6232451164496952,
+    "trained_at": "2026-11-06T09:20:20+00:00",
+    "python": "3.14.3",
+    "torch": "2.13.0+cpu",
+    "scikit_learn": "1.8.0",
+    "numpy": "2.4.3"
+  }
+}

@@ -1,3 +1,8 @@
+import json
+import platform
+import sys
+from datetime import datetime, timezone
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -6,12 +11,51 @@ from torch.utils.data import DataLoader, TensorDataset
 import pickle
 from pathlib import Path
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, f1_score
+from sklearn.utils.class_weight import compute_class_weight
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(BASE_DIR))
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
 MODELS_DIR = BASE_DIR / "models"
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
+MANIFEST_PATH = MODELS_DIR / "manifest.json"
+
+
+def spec_augment(x, max_time=16, max_freq=12, noise_std=0.05):
+    """SpecAugment-style masking + light Gaussian noise on a (B, C, F, T) batch.
+
+    Targets the studio-vs-microphone gap: the model must not rely on any
+    single frequency band or time slice, and must tolerate background noise.
+    """
+    x = x.clone()
+    b, _, f, t = x.shape
+    for i in range(b):
+        fw = int(torch.randint(0, max_freq + 1, (1,)))
+        f0 = int(torch.randint(0, max(1, f - fw), (1,)))
+        x[i, :, f0:f0 + fw, :] = 0
+        tw = int(torch.randint(0, max_time + 1, (1,)))
+        t0 = int(torch.randint(0, max(1, t - tw), (1,)))
+        x[i, :, :, t0:t0 + tw] = 0
+    return x + noise_std * torch.randn_like(x)
+
+
+def _update_manifest(key, entry):
+    """Record what each shipped model was trained on and with which libraries."""
+    import sklearn
+
+    manifest = {}
+    if MANIFEST_PATH.exists():
+        manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    entry.update({
+        "trained_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "python": platform.python_version(),
+        "torch": torch.__version__,
+        "scikit_learn": sklearn.__version__,
+        "numpy": np.__version__,
+    })
+    manifest[key] = entry
+    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
 class MoodCNN(nn.Module):
     def __init__(self, num_classes):
@@ -67,7 +111,8 @@ def train_speech():
     val_loader = DataLoader(TensorDataset(X_val_t, y_val_t), batch_size=32)
 
     model = MoodCNN(num_classes).to(device)
-    criterion = nn.CrossEntropyLoss()
+    weights = compute_class_weight("balanced", classes=np.arange(num_classes), y=y_train)
+    criterion = nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float32, device=device))
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=5)
 
@@ -79,10 +124,11 @@ def train_speech():
         for X_b, y_b in train_loader:
             X_b, y_b = X_b.to(device), y_b.to(device)
             optimizer.zero_grad()
-            loss = criterion(model(X_b), y_b)
+            out = model(spec_augment(X_b))
+            loss = criterion(out, y_b)
             loss.backward()
             optimizer.step()
-            _, pred = torch.max(model(X_b).data, 1)
+            _, pred = torch.max(out.data, 1)
             train_total += y_b.size(0)
             train_correct += (pred == y_b).sum().item()
             train_loss_sum += loss.item()
@@ -127,16 +173,31 @@ def train_speech():
     with open(str(MODELS_DIR / "speech_history.pkl"), "wb") as f:
         pickle.dump(history, f)
 
-    model.load_state_dict(torch.load(str(MODELS_DIR / "speech_mood_model.pth")))
+    model.load_state_dict(torch.load(str(MODELS_DIR / "speech_mood_model.pth"), weights_only=True))
     model.eval()
-    test_correct, test_total = 0, 0
+    preds = []
     with torch.no_grad():
-        for X_b, y_b in DataLoader(TensorDataset(X_test_t, y_test_t), batch_size=32):
-            X_b, y_b = X_b.to(device), y_b.to(device)
-            _, pred = torch.max(model(X_b).data, 1)
-            test_total += y_b.size(0)
-            test_correct += (pred == y_b).sum().item()
-    print(f"Speech test accuracy: {test_correct/test_total:.4f}")
+        for X_b, _ in DataLoader(TensorDataset(X_test_t, y_test_t), batch_size=32):
+            preds.extend(torch.argmax(model(X_b.to(device)), dim=1).cpu().tolist())
+    preds = np.array(preds)
+    test_acc = float((preds == y_test).mean())
+    macro_f1 = float(f1_score(y_test, preds, average="macro"))
+    print(f"Speech test accuracy: {test_acc:.4f}  macro-F1: {macro_f1:.4f}")
+
+    # Persist the label order alongside the weights so inference never has
+    # to rely on dict ordering in config/mood_features.json.
+    from src.spotify_client import INDEX_TO_EMOTION
+
+    labels = [INDEX_TO_EMOTION[i] for i in range(num_classes)]
+    (MODELS_DIR / "speech_labels.json").write_text(json.dumps(labels), encoding="utf-8")
+    _update_manifest("speech", {
+        "file": "speech_mood_model.pth",
+        "labels": labels,
+        "dataset": "TESS",
+        "test_accuracy": test_acc,
+        "test_macro_f1": macro_f1,
+        "best_val_accuracy": float(best_acc),
+    })
 
 def train_text():
     print("Loading text features...")
@@ -149,7 +210,7 @@ def train_text():
     y_test = np.load(str(PROCESSED_DIR / "text_y_test.npy"))
     print(f"Train: {X_train.shape}, Test: {X_test.shape}")
 
-    model = LogisticRegression(C=1.0, max_iter=1000, n_jobs=-1)
+    model = LogisticRegression(C=1.0, max_iter=1000, n_jobs=-1, class_weight="balanced")
     model.fit(X_train, y_train)
     train_acc = model.score(X_train, y_train)
     test_acc = model.score(X_test, y_test)
@@ -168,7 +229,16 @@ def train_text():
     pipeline = {"vectorizer": vectorizer, "model": model, "emotions": emotions}
     with open(str(MODELS_DIR / "text_mood_pipeline.pkl"), "wb") as f:
         pickle.dump(pipeline, f)
-    print(f"Text model saved.")
+    macro_f1 = float(f1_score(y_test, model.predict(X_test), average="macro"))
+    print(f"Test macro-F1: {macro_f1:.4f}")
+    _update_manifest("text", {
+        "file": "text_mood_pipeline.pkl",
+        "labels": list(emotions),
+        "dataset": "data/text_emotion",
+        "test_accuracy": float(test_acc),
+        "test_macro_f1": macro_f1,
+    })
+    print("Text model saved.")
 
 if __name__ == "__main__":
     train_speech()

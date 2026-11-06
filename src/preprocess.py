@@ -1,4 +1,5 @@
 import os
+import sys
 import re
 import string
 import zipfile
@@ -11,16 +12,15 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import pickle
 import argparse
 
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(BASE_DIR))
+
+from src.features import SR, N_MELS, HOP_LENGTH, N_FFT, TARGET_FRAMES, clean_text, mel_from_file  # noqa: E402,F401
 DATA_DIR = BASE_DIR / "data"
 PROCESSED_DIR = DATA_DIR / "processed"
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-SR = 16000
-N_MELS = 128
-HOP_LENGTH = 512
-N_FFT = 2048
-TARGET_FRAMES = 128
 
 TESS_DIR = DATA_DIR / "TESS"
 
@@ -60,20 +60,7 @@ TEXT_LABEL_MAP = {
 }
 
 def extract_mel_spectrogram(file_path):
-    y, sr = librosa.load(file_path, sr=SR, mono=True)
-    mel_spec = librosa.feature.melspectrogram(
-        y=y, sr=sr, n_mels=N_MELS, hop_length=HOP_LENGTH, n_fft=N_FFT
-    )
-    mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
-    if mel_spec_db.shape[1] < TARGET_FRAMES:
-        pad_width = TARGET_FRAMES - mel_spec_db.shape[1]
-        mel_spec_db = np.pad(mel_spec_db, ((0, 0), (0, pad_width)), mode="constant")
-    else:
-        mel_spec_db = mel_spec_db[:, :TARGET_FRAMES]
-    mel_spec_db = mel_spec_db.astype(np.float32)
-    mel_spec_db = (mel_spec_db - mel_spec_db.mean()) / (mel_spec_db.std() + 1e-8)
-    mel_spec_3ch = np.stack([mel_spec_db] * 3, axis=-1)
-    return mel_spec_3ch
+    return mel_from_file(file_path)
 
 def load_tess():
     X, y = [], []
@@ -106,13 +93,6 @@ def load_tess():
         X.append(mel)
         y.append(label)
     return np.array(X), np.array(y)
-
-def clean_text(text):
-    text = text.lower()
-    text = re.sub(f"[{re.escape(string.punctuation)}]", " ", text)
-    text = re.sub(r"\d+", "", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
 
 def load_text_dataset():
     text_dir = DATA_DIR / "text_emotion"

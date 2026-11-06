@@ -1,0 +1,32 @@
+__pycache__
+*.pyc
+.git
+.gitignore
+.dockerignore
+.env
+.env.local
+.spotify_cache
+.cache
+README.md
+pytest.ini
+tests/
+backend.log
+backend.err.log
+data/TESS/
+data/processed/
+data/text_emotion/
+*.npz
+*.npy
+web/node_modules/
+web/.next/
+web/out/
+reports/
+
+# API image serves ONNX; torch weights and training artefacts are not needed.
+models/*.pth
+models/text_history.pkl
+models/text_mood_model.pkl
+# Fetched inside the image by scripts/fetch_models.py
+models/goemotions/
+data/CREMA-D/
+data/goemotions/
